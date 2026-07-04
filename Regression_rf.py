@@ -2,6 +2,9 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+from sklearn.tree import plot_tree
+from sklearn.tree import export_graphviz
+import graphviz
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
@@ -44,32 +47,32 @@ X_train, X_test, y_train, y_test = train_test_split(
 print(f"Training samples: {X_train.shape[0]}")
 print(f"Testing samples : {X_test.shape[0]}")
 
-# # ============================================================
-# # Exploratory Data Analysis
-# # ============================================================
+# ============================================================
+# Exploratory Data Analysis
+# ============================================================
 
-# # Distribution of SalePrice
-# plt.figure(figsize=(8,5))
-# sns.histplot(df["SalePrice"], kde=True)
-# plt.title("Distribution of SalePrice")
-# plt.show()
+# Distribution of SalePrice
+plt.figure(figsize=(8,5))
+sns.histplot(df["SalePrice"], kde=True)
+plt.title("Distribution of SalePrice")
+plt.show()
 
-# # Correlation Heatmap
-# plt.figure(figsize=(12,10))
-# corr = df.corr(numeric_only=True)
-# sns.heatmap(corr)
-# plt.title("Correlation Heatmap")
-# plt.show()
+# Correlation Heatmap
+plt.figure(figsize=(12,10))
+corr = df.corr(numeric_only=True)
+sns.heatmap(corr)
+plt.title("Correlation Heatmap")
+plt.show()
 
-# # Correlation with target variable
-# print("\nCorrelation with SalePrice:")
-# print(corr["SalePrice"].sort_values(ascending=False))
+# Correlation with target variable
+print("\nCorrelation with SalePrice:")
+print(corr["SalePrice"].sort_values(ascending=False))
 
-# # Scatter Plot
-# plt.figure(figsize=(7,5))
-# sns.scatterplot(data=df, x="GrLivArea", y="SalePrice")
-# plt.title("Ground Living Area vs Sale Price")
-# plt.show()
+# Scatter Plot
+plt.figure(figsize=(7,5))
+sns.scatterplot(data=df, x="GrLivArea", y="SalePrice")
+plt.title("Ground Living Area vs Sale Price")
+plt.show()
 
 
 # One-Hot Encoding
@@ -1510,6 +1513,37 @@ y_pred = rf_model.predict(X_test)
 
 print(f"The Shape of the prected values: {y_pred.shape}")
 
+# Export the tree as a PDF
+
+tree = rf_model.estimators_[0]
+
+dot_data = export_graphviz(
+    tree,
+    out_file=None,
+    feature_names=X_train.columns,
+    filled=True,
+    rounded=True
+)
+
+graph = graphviz.Source(dot_data)
+
+graph.render("random_forest_tree")
+
+# Select the first tree
+tree = rf_model.estimators_[0]
+
+plt.figure(figsize=(30,15))
+
+plot_tree(
+    tree,
+    feature_names=X_train.columns,
+    filled=True,
+    rounded=True,
+    max_depth=3,      
+    fontsize=8
+)
+
+plt.show()
 
 
 ###############################################
@@ -1555,8 +1589,12 @@ feature_importance = feature_importance.sort_values(
     by="Importance",
     ascending=False
 )
+print(feature_importance.head(40))
 
-print(feature_importance.head(20))
+top10_features = feature_importance.head(10)
+
+print("\nTop 10 Most Important Features")
+print(top10_features.to_string(index=False))
 
 
 ###############################################
