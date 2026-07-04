@@ -1573,23 +1573,37 @@ plt.gca().invert_yaxis()
 plt.show()
 
 
+###############################################
+############ Predicted vs Actual Plot #########
+###############################################
+plt.figure(figsize=(8,8))
+plt.scatter(y_test, y_pred, alpha=0.6)
+
+plt.plot(
+    [y_test.min(), y_test.max()],
+    [y_test.min(), y_test.max()],
+    'r--'
+)
+
+plt.xlabel("Actual Price")
+plt.ylabel("Predicted Price")
+plt.title("Actual vs Predicted House Prices")
+
+plt.show()
 
 
+###############################################
+############### Residual Plot #################
+###############################################
+residuals = y_test - y_pred
 
+plt.figure(figsize=(8,6))
+plt.scatter(y_pred, residuals)
 
+plt.axhline(y=0, linestyle='--')
 
+plt.xlabel("Predicted Price")
+plt.ylabel("Residual")
+plt.title("Residual Plot")
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+plt.show()
