@@ -1,5 +1,7 @@
 # import packages
 import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
@@ -7,52 +9,118 @@ from sklearn.metrics import  mean_absolute_error, mean_squared_error, root_mean_
 
 
 # Load data
-X_train = pd.read_csv('data/train.csv')
+df = pd.read_csv('data/train.csv')
 
 
-print('The shape of train data :', X_train.shape)
-
+print('The shape of train data :', df.shape)
 
 # Check Columns in the data
-print(X_train.columns)
-
-for col in X_train.columns:
+for col in df.columns:
     print(col)
 
 # Print a concise structural summary of the dataset.
-X_train.info()
+df.info()
 
-# show number of rows and columns in the data
-print("Number of rows:", X_train.shape[0])
-print("Number of columns:", X_train.shape[1])
+# ======================================================
+# Separate Features and Target
+# ======================================================
 
-# convert MSSubClass to categorical variable
-X_train["MSSubClass"] = X_train["MSSubClass"].astype("category")
+X = df.drop("SalePrice", axis=1)
+
+y = df["SalePrice"]
+
+# ======================================================
+# Split the Data (Avoid Data Leakage)
+# ======================================================
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X,
+    y,
+    test_size=0.20,
+    random_state=42
+)
+
+
+print(f"Training samples: {X_train.shape[0]}")
+print(f"Testing samples : {X_test.shape[0]}")
+
+# # ============================================================
+# # Exploratory Data Analysis
+# # ============================================================
+
+# # Distribution of SalePrice
+# plt.figure(figsize=(8,5))
+# sns.histplot(df["SalePrice"], kde=True)
+# plt.title("Distribution of SalePrice")
+# plt.show()
+
+# # Correlation Heatmap
+# plt.figure(figsize=(12,10))
+# corr = df.corr(numeric_only=True)
+# sns.heatmap(corr)
+# plt.title("Correlation Heatmap")
+# plt.show()
+
+# # Correlation with target variable
+# print("\nCorrelation with SalePrice:")
+# print(corr["SalePrice"].sort_values(ascending=False))
+
+# # Scatter Plot
+# plt.figure(figsize=(7,5))
+# sns.scatterplot(data=df, x="GrLivArea", y="SalePrice")
+# plt.title("Ground Living Area vs Sale Price")
+# plt.show()
+
+
+# One-Hot Encoding
+mssubclass_ohe = OneHotEncoder(
+    handle_unknown="ignore",
+    sparse_output=False
+)
+
+# Learn the categories and encode the training data
+mssubclass_train = mssubclass_ohe.fit_transform(
+    X_train[['MSSubClass']]
+)
+
+# Create a DataFrame for the encoded columns
+mssubclass_df = pd.DataFrame(
+    mssubclass_train,
+    columns=mssubclass_ohe.get_feature_names_out(['MSSubClass']),
+    index=X_train.index
+)
+
+# Drop the original column
+X_train = X_train.drop(columns=['MSSubClass'])
+
+# Concatenate the encoded columns
+X_train = pd.concat([X_train, mssubclass_df], axis=1)
 
 # replace all values of 'C (all)' with 'C'
 X_train['MSZoning'] = X_train['MSZoning'].replace('C (all)', 'C')
 
-# One-Hot Encoding.
+# One-Hot Encoding
 mszoning_ohe = OneHotEncoder(
     sparse_output=False,
     handle_unknown='ignore'
 )
 
+# Learn the categories and encode the training data
 mszoning_train = mszoning_ohe.fit_transform(
     X_train[['MSZoning']]
 )
 
-# create a dataframe for the encoded columns
+# Create a DataFrame for the encoded columns
 mszoning_df = pd.DataFrame(
     mszoning_train,
     columns=mszoning_ohe.get_feature_names_out(['MSZoning']),
     index=X_train.index
 )
 
-# Drop original column
+# Drop the original column
 X_train = X_train.drop(columns=['MSZoning'])
 
-# concatenate the encoded columns to X_train data
+# Concatenate the encoded columns
 X_train = pd.concat([X_train, mszoning_df], axis=1)
 
 # Ordinal encoding
@@ -62,9 +130,6 @@ street_map = {
 }
 
 X_train['Street'] = X_train['Street'].map(street_map)
-
-# convert Street to categorical variable
-X_train["Street"] = X_train["Street"].astype("category")
 
 # Replace NA values
 X_train["Alley"] = X_train["Alley"].fillna("NoAlley")
@@ -77,19 +142,6 @@ alley_map = {
 }
 
 X_train['Alley'] = X_train['Alley'].map(alley_map)
-
-# convert Alley to categorical variable
-X_train["Alley"] = X_train["Alley"].astype("category")
-
-# Replace NA values
-X_train['MiscFeature'] = X_train['MiscFeature'].fillna('None')
-
-# convert MiscFeature to categorical variable
-X_train["MiscFeature"] = X_train["MiscFeature"].astype("category")
-
-
-# convert LotShape to categorical variable
-X_train["LotShape"] = X_train["LotShape"].astype("category")
 
 # encoding the variable
 lotshape_map = {
@@ -203,48 +255,56 @@ X_train = X_train.drop(columns=['Neighborhood'])
 # Concatenate the encoded columns
 X_train = pd.concat([X_train, neighborhood_df], axis=1)
 
+# Fill missing values (if any)
+X_train["Condition1"] = X_train["Condition1"].fillna("NA")
+
 # One-Hot Encoding
 condition1_ohe = OneHotEncoder(
-    handle_unknown="ignore",
-    sparse_output=False
+    sparse_output=False,
+    handle_unknown="ignore"
 )
 
+# Learn the categories and encode the training data
 condition1_train = condition1_ohe.fit_transform(
-    X_train[['Condition1']]
+    X_train[["Condition1"]]
 )
 
 # Create a DataFrame for the encoded columns
 condition1_df = pd.DataFrame(
     condition1_train,
-    columns=condition1_ohe.get_feature_names_out(['Condition1']),
+    columns=condition1_ohe.get_feature_names_out(["Condition1"]),
     index=X_train.index
 )
 
 # Drop the original column
-X_train = X_train.drop(columns=['Condition1'])
+X_train = X_train.drop(columns=["Condition1"])
 
 # Concatenate the encoded columns
 X_train = pd.concat([X_train, condition1_df], axis=1)
 
+# Fill missing values (if any)
+X_train["Condition2"] = X_train["Condition2"].fillna("NA")
+
 # One-Hot Encoding
 condition2_ohe = OneHotEncoder(
-    handle_unknown="ignore",
-    sparse_output=False
+    sparse_output=False,
+    handle_unknown="ignore"
 )
 
+# Learn the categories and encode the training data
 condition2_train = condition2_ohe.fit_transform(
-    X_train[['Condition2']]
+    X_train[["Condition2"]]
 )
 
 # Create a DataFrame for the encoded columns
 condition2_df = pd.DataFrame(
     condition2_train,
-    columns=condition2_ohe.get_feature_names_out(['Condition2']),
+    columns=condition2_ohe.get_feature_names_out(["Condition2"]),
     index=X_train.index
 )
 
 # Drop the original column
-X_train = X_train.drop(columns=['Condition2'])
+X_train = X_train.drop(columns=["Condition2"])
 
 # Concatenate the encoded columns
 X_train = pd.concat([X_train, condition2_df], axis=1)
@@ -295,8 +355,22 @@ X_train = X_train.drop(columns=['HouseStyle'])
 # Concatenate the encoded columns
 X_train = pd.concat([X_train, housestyle_df], axis=1)
 
-# convert OverallQual to categorical variable
-X_train["OverallQual"] = X_train["OverallQual"].astype("category")
+# ordinal encoding through mapping
+overallqual_mapping = {
+    "Very Poor": 1,
+    "Poor": 2,
+    "Fair": 3,
+    "Below Average": 4,
+    "Average": 5,
+    "Above Average": 6,
+    "Good": 7,
+    "Very Good": 8,
+    "Excellent": 9,
+    "Very Excellent": 10
+}
+
+# map the values after encoding
+X_train["OverallQual"] = X_train["OverallQual"].map(overallqual_mapping)
 
 # ordinal encoding by mapping
 overallcond_mapping = {
@@ -314,25 +388,6 @@ overallcond_mapping = {
 
 # maping the values
 X_train['OverallCond'] = X_train['OverallCond'].map(overallcond_mapping)
-
-# convert RoofStyle to categorical variable
-X_train["RoofStyle"] = X_train["RoofStyle"].astype("category")
-
-roof_mapping = {
-    'CompShg': 'Composite_Shingle',
-    'Tar&Grv': 'Tar_Gravel',
-    'WdShngl': 'Wood',
-    'WdShake': 'Wood',
-    'ClyTile': 'Other',
-    'Membran': 'Other',
-    'Metal': 'Other',
-    'Roll': 'Other'
-}
-
-X_train['RoofMatl'] = X_train['RoofMatl'].map(roof_mapping)
-
-# convert RoofMatl to categorical variable
-X_train["RoofMatl"] = X_train["RoofMatl"].astype("category")
 
 # One-Hot Encoding
 roofstyle_ohe = OneHotEncoder(
@@ -356,6 +411,29 @@ X_train = X_train.drop(columns=['RoofStyle'])
 
 # Concatenate the encoded columns
 X_train = pd.concat([X_train, roofstyle_df], axis=1)
+
+# One-Hot Encoding
+roofmatl_ohe = OneHotEncoder(
+    handle_unknown="ignore",
+    sparse_output=False
+)
+
+roofmatl_train = roofmatl_ohe.fit_transform(
+    X_train[['RoofMatl']]
+)
+
+# Create a DataFrame for the encoded columns
+roofmatl_df = pd.DataFrame(
+    roofmatl_train,
+    columns=roofmatl_ohe.get_feature_names_out(['RoofMatl']),
+    index=X_train.index
+)
+
+# Drop the original column
+X_train = X_train.drop(columns=['RoofMatl'])
+
+# Concatenate the encoded columns
+X_train = pd.concat([X_train, roofmatl_df], axis=1)
 
 # One-Hot Encoding
 exterior1st_ohe = OneHotEncoder(
@@ -424,11 +502,6 @@ X_train = X_train.drop(columns=['MasVnrType'])
 # Concatenate the encoded columns
 X_train = pd.concat([X_train, masvnr_df], axis=1)
 
-# convert ExterQual to categorical variable
-X_train["ExterQual"] = X_train["ExterQual"].astype("category")
-
-# convert ExterQual to categorical variable
-X_train["ExterQual"] = X_train["ExterQual"].astype("category")
 
 # encoding the variable
 exterqual_mapping = {
@@ -439,8 +512,9 @@ exterqual_mapping = {
     'Ex': 5
 }
 
-# convert ExterCond to categorical variable
-X_train['ExterCond'] = X_train['ExterCond'].astype("category")
+# mapping the values after encoding
+X_train['ExterQual'] = X_train['ExterQual'].map(exterqual_mapping)
+
 
 extercond_mapping = {
     'Po': 1,
@@ -450,10 +524,9 @@ extercond_mapping = {
     'Ex': 5
 }
 
+# mapping the values after encoding
 X_train['ExterCond'] = X_train['ExterCond'].map(extercond_mapping)
 
-# convert Foundation to categorical variable
-X_train["Foundation"] = X_train["Foundation"].astype("category")
 
 # One-Hot Encoding to encode the variable
 foundation_ohe = OneHotEncoder(
@@ -465,7 +538,6 @@ foundation_train = foundation_ohe.fit_transform(
     X_train[['Foundation']]
 
 )
-
 
 # Convert the encoded array to a DataFrame
 foundation_df = pd.DataFrame(
@@ -494,9 +566,6 @@ bsmtqual_mapping = {
 
 X_train['BsmtQual'] = X_train['BsmtQual'].map(bsmtqual_mapping)
 
-# convert BsmtQual to categorical variable
-X_train["BsmtQual"] = X_train["BsmtQual"].astype("category")
-
 # Replace missing values with 'NA'
 X_train['BsmtCond'] = X_train['BsmtCond'].fillna('NA')
 
@@ -511,9 +580,6 @@ bsmtcond_mapping = {
 
 X_train['BsmtCond'] = X_train['BsmtCond'].map(bsmtcond_mapping)
 
-# convert BsmtCond to categorical variable
-X_train["BsmtCond"] = X_train["BsmtCond"].astype("category")
-
 # Replace missing values with 'NA' (No Basement)
 X_train['BsmtExposure'] = X_train['BsmtExposure'].fillna('NA')
 
@@ -527,9 +593,6 @@ bsmtexposure_mapping = {
 }
 
 X_train['BsmtExposure'] = X_train['BsmtExposure'].map(bsmtexposure_mapping)
-
-# convert BsmtExposure to categorical variable
-X_train["BsmtExposure"] = X_train["BsmtExposure"].astype("category")
 
 # Replace missing values with 'NA'
 X_train['BsmtFinType1'] = X_train['BsmtFinType1'].fillna('NA')
@@ -547,8 +610,6 @@ bsmtfintype1_mapping = {
 
 X_train['BsmtFinType1'] = X_train['BsmtFinType1'].map(bsmtfintype1_mapping)
 
-# convert BsmtFinType1 to categorical variable
-X_train["BsmtFinType1"] = X_train["BsmtFinType1"].astype("category")
 
 # Replace missing values with 'NA'
 X_train['BsmtFinType2'] = X_train['BsmtFinType2'].fillna('NA')
@@ -565,33 +626,28 @@ bsmtfintype2_mapping = {
 
 X_train['BsmtFinType2'] = X_train['BsmtFinType2'].map(bsmtfintype2_mapping)
 
-# convert BsmtFinType2 to categorical variable
-X_train["BsmtFinType2"] = X_train["BsmtFinType2"].astype("category")
-
-# Convert to categorical variable
-X_train["Heating"] = X_train["Heating"].astype("category")
-
-# One-Hot Encode
+# One-Hot Encoding
 heating_ohe = OneHotEncoder(
-    handle_unknown="ignore",
-    sparse_output=False
+    sparse_output=False,
+    handle_unknown="ignore"
 )
 
+# Learn the categories and encode the training data
 heating_train = heating_ohe.fit_transform(
-    X_train[['Heating']]
+    X_train[["Heating"]]
 )
 
-# Convert the encoded array to a DataFrame:
+# Create a DataFrame for the encoded columns
 heating_df = pd.DataFrame(
     heating_train,
-    columns=heating_ohe.get_feature_names_out(['Heating']),
+    columns=heating_ohe.get_feature_names_out(["Heating"]),
     index=X_train.index
 )
 
-# Drop the original column:
-X_train = X_train.drop(columns=['Heating'])
+# Drop the original column
+X_train = X_train.drop(columns=["Heating"])
 
-# Add the encoded columns to X_train data
+# Concatenate the encoded columns
 X_train = pd.concat([X_train, heating_df], axis=1)
 
 heatingqc_mapping = {
@@ -604,8 +660,6 @@ heatingqc_mapping = {
 
 X_train['HeatingQC'] = X_train['HeatingQC'].map(heatingqc_mapping)
 
-# Convert to categorical variable
-X_train["HeatingQC"] = X_train["HeatingQC"].astype("category")
 
 centralair_mapping = {
     'N': 0,
@@ -614,31 +668,32 @@ centralair_mapping = {
 
 X_train['CentralAir'] = X_train['CentralAir'].map(centralair_mapping)
 
-# Convert to categorical variable
-X_train["CentralAir"] = X_train["CentralAir"].astype("category")
 
+# Fill missing values first
+X_train["Electrical"] = X_train["Electrical"].fillna("NA")
 
 # One-Hot Encoding
 electrical_ohe = OneHotEncoder(
-    handle_unknown='ignore',
-    sparse_output=False
+    sparse_output=False,
+    handle_unknown="ignore"
 )
 
+# Learn the categories and encode the training data
 electrical_train = electrical_ohe.fit_transform(
-    X_train[['Electrical']]
+    X_train[["Electrical"]]
 )
 
-# Convert to a DataFrame:
+# Create a DataFrame for the encoded columns
 electrical_df = pd.DataFrame(
     electrical_train,
-    columns=electrical_ohe.get_feature_names_out(['Electrical']),
+    columns=electrical_ohe.get_feature_names_out(["Electrical"]),
     index=X_train.index
 )
 
-# Drop the original column:
-X_train = X_train.drop(columns=['Electrical'])
+# Drop the original column
+X_train = X_train.drop(columns=["Electrical"])
 
-# Add the encoded columns to X_train data
+# Concatenate the encoded columns
 X_train = pd.concat([X_train, electrical_df], axis=1)
 
 kitchenqual_mapping = {
@@ -651,8 +706,6 @@ kitchenqual_mapping = {
 
 X_train['KitchenQual'] = X_train['KitchenQual'].map(kitchenqual_mapping)
 
-# Convert to categorical variable
-X_train['KitchenQual'] = X_train['KitchenQual'].astype('category')
 
 functional_mapping = {
     'Sal': 1,
@@ -667,8 +720,6 @@ functional_mapping = {
 
 X_train['Functional'] = X_train['Functional'].map(functional_mapping)
 
-# Convert to categorical variable
-X_train['Functional'] = X_train['Functional'].astype('category')
 
 # Replace missing values with 'NA'
 X_train['FireplaceQu'] = X_train['FireplaceQu'].fillna('NA')
@@ -684,34 +735,33 @@ fireplacequ_mapping = {
 
 X_train['FireplaceQu'] = X_train['FireplaceQu'].map(fireplacequ_mapping)
 
-# Convert to categorical variable
-X_train['FireplaceQu'] = X_train['FireplaceQu'].astype('category')
+
+# Fill missing values first
+X_train["GarageType"] = X_train["GarageType"].fillna("NA")
 
 # One-Hot Encoding
 garagetype_ohe = OneHotEncoder(
-    handle_unknown='ignore',
-    sparse_output=False
+    sparse_output=False,
+    handle_unknown="ignore"
 )
 
+# Learn the categories and encode the training data
 garagetype_train = garagetype_ohe.fit_transform(
-    X_train[['GarageType']]
+    X_train[["GarageType"]]
 )
 
-# Replace missing values with 'NA' and convert to categorical variable
-X_train['GarageType'] = X_train['GarageType'].fillna('NA')
-
-# Convert the encoded columns to a DataFrame:
-garagetype_train_df = pd.DataFrame(
+# Create a DataFrame for the encoded columns
+garagetype_df = pd.DataFrame(
     garagetype_train,
-    columns=garagetype_ohe.get_feature_names_out(['GarageType']),
+    columns=garagetype_ohe.get_feature_names_out(["GarageType"]),
     index=X_train.index
 )
 
-# Drop the original column:
-X_train = X_train.drop(columns=['GarageType'])
+# Drop the original column
+X_train = X_train.drop(columns=["GarageType"])
 
 # Concatenate the encoded columns
-X_train = pd.concat([X_train, garagetype_train_df], axis=1)
+X_train = pd.concat([X_train, garagetype_df], axis=1)
 
 # Replace all missing values with 'NA'
 X_train['GarageFinish'] = X_train['GarageFinish'].fillna('NA')
@@ -726,8 +776,6 @@ garagefinish_mapping = {
 
 X_train['GarageFinish'] = X_train['GarageFinish'].map(garagefinish_mapping)
 
-# Convert to categorical variable
-X_train['GarageFinish'] = X_train['GarageFinish'].astype('category')
 
 # Replace all missing values with 'NA'
 X_train['GarageQual'] = X_train['GarageQual'].fillna('NA')
@@ -742,7 +790,8 @@ garagequal_mapping = {
     'Ex': 5
 }
 
-X_train['GarageQual'] = X_train['GarageQual'].map(garagequal_mapping).astype('category')
+# mapping the values after encoding 
+X_train['GarageQual'] = X_train['GarageQual'].map(garagequal_mapping)
 
 # Replace missing values with 'NA'
 X_train['GarageCond'] = X_train['GarageCond'].fillna('NA')
@@ -756,8 +805,10 @@ garagecond_mapping = {
     'Ex': 5
 }
 
-X_train['GarageCond'] = X_train['GarageCond'].map(garagecond_mapping).astype('category')
+# mapping the values after encoding 
+X_train['GarageCond'] = X_train['GarageCond'].map(garagecond_mapping)
 
+# Replace all na values with 'N'
 X_train['PavedDrive'] = X_train['PavedDrive'].fillna('N')
 
 paveddrive_mapping = {
@@ -766,7 +817,7 @@ paveddrive_mapping = {
     'Y': 2
 }
 
-X_train['PavedDrive'] = X_train['PavedDrive'].map(paveddrive_mapping).astype('category')
+X_train['PavedDrive'] = X_train['PavedDrive'].map(paveddrive_mapping)
 
 # Replace missing values with 'No Pool'
 X_train['PoolQC'] = X_train['PoolQC'].fillna('No Pool')
@@ -780,8 +831,8 @@ poolqc_mapping = {
     'Ex': 4
 }
 
-# map the values and convert to categorical variable
-X_train['PoolQC'] = X_train['PoolQC'].map(poolqc_mapping).astype('category')
+# map the values 
+X_train['PoolQC'] = X_train['PoolQC'].map(poolqc_mapping)
 
 # Replace missing values with 'No Fence'
 X_train['Fence'] = X_train['Fence'].fillna('No Fence')
@@ -795,51 +846,56 @@ fence_mapping = {
     'GdPrv': 4
 }
 
-# Map the values and convert to categorical
-X_train['Fence'] = X_train['Fence'].map(fence_mapping).astype('category')
+# Map the values after encoding
+X_train['Fence'] = X_train['Fence'].map(fence_mapping)
+
+# Fill missing values first
+X_train["MiscFeature"] = X_train["MiscFeature"].fillna("None")
 
 # One-Hot Encoding
 miscfeature_ohe = OneHotEncoder(
     sparse_output=False,
-    handle_unknown='ignore'
+    handle_unknown="ignore"
 )
 
+# Learn the categories and encode the training data
 miscfeature_train = miscfeature_ohe.fit_transform(
-    X_train[['MiscFeature']].fillna('No Pool')
+    X_train[["MiscFeature"]]
 )
 
-# create a dataframe for the encoded columns
+# Create a DataFrame for the encoded columns
 miscfeature_df = pd.DataFrame(
     miscfeature_train,
-    columns=miscfeature_ohe.get_feature_names_out(['MiscFeature']),
+    columns=miscfeature_ohe.get_feature_names_out(["MiscFeature"]),
     index=X_train.index
 )
 
-# Drop original column
-X_train = X_train.drop(columns=['MiscFeature'])
+# Drop the original column
+X_train = X_train.drop(columns=["MiscFeature"])
 
-# Concatenate encoded columns
+# Concatenate the encoded columns
 X_train = pd.concat([X_train, miscfeature_df], axis=1)
 
 # One-Hot Encoding
 saletype_ohe = OneHotEncoder(
     sparse_output=False,
-    handle_unknown='ignore'
+    handle_unknown="ignore"
 )
 
+# Learn the categories and encode the training data
 saletype_train = saletype_ohe.fit_transform(
-    X_train[['SaleType']]
+    X_train[["SaleType"]]
 )
 
-# create a dataframe for the encoded columns
+# Create a DataFrame for the encoded columns
 saletype_df = pd.DataFrame(
     saletype_train,
-    columns=saletype_ohe.get_feature_names_out(['SaleType']),
+    columns=saletype_ohe.get_feature_names_out(["SaleType"]),
     index=X_train.index
 )
 
 # Drop the original column
-X_train = X_train.drop(columns=['SaleType'])
+X_train = X_train.drop(columns=["SaleType"])
 
 # Concatenate the encoded columns
 X_train = pd.concat([X_train, saletype_df], axis=1)
@@ -847,27 +903,28 @@ X_train = pd.concat([X_train, saletype_df], axis=1)
 # One-Hot Encoding
 salecondition_ohe = OneHotEncoder(
     sparse_output=False,
-    handle_unknown='ignore'
+    handle_unknown="ignore"
 )
 
+# Learn the categories and encode the training data
 salecondition_train = salecondition_ohe.fit_transform(
-    X_train[['SaleCondition']]
+    X_train[["SaleCondition"]]
 )
 
-# create a dataframe for the encoded columns
+# Create a DataFrame for the encoded columns
 salecondition_df = pd.DataFrame(
     salecondition_train,
-    columns=salecondition_ohe.get_feature_names_out(['SaleCondition']),
+    columns=salecondition_ohe.get_feature_names_out(["SaleCondition"]),
     index=X_train.index
 )
 
 # Drop the original column
-X_train = X_train.drop(columns=['SaleCondition'])
+X_train = X_train.drop(columns=["SaleCondition"])
 
 # Concatenate the encoded columns
 X_train = pd.concat([X_train, salecondition_df], axis=1)
 
-# Handling missing values
+################ Handling missing values ######################
 
 X_train["GarageYrBlt"] = X_train["GarageYrBlt"].fillna(0)
 
@@ -889,50 +946,51 @@ X_train["MasVnrArea"] = X_train["MasVnrArea"].fillna(0)
 
 
 
-# Load data
-X_test = pd.read_csv('data/test.csv')
+# Transform the test data
+mssubclass_test = mssubclass_ohe.transform(
+    X_test[['MSSubClass']]
+)
 
-print('The shape of test data :', X_test.shape)
+# Create a DataFrame for the encoded columns
+mssubclass_test_df = pd.DataFrame(
+    mssubclass_test,
+    columns=mssubclass_ohe.get_feature_names_out(['MSSubClass']),
+    index=X_test.index
+)
 
-# convert MSSubClass to categorical variable
-X_test["MSSubClass"] = X_test["MSSubClass"].astype("category")
+# Drop the original column
+X_test = X_test.drop(columns=['MSSubClass'])
+
+# Concatenate the encoded columns
+X_test = pd.concat([X_test, mssubclass_test_df], axis=1)
 
 # replace all values of 'C (all)' with 'C'
 X_test['MSZoning'] = X_test['MSZoning'].replace('C (all)', 'C')
 
-# One-Hot Encoding.
-mszoning_ohe = OneHotEncoder(
-    sparse_output=False,
-    handle_unknown='ignore'
-)
-
-mszoning_test = mszoning_ohe.fit_transform(
+# Encode the test data using the encoder fitted on the training data
+mszoning_test = mszoning_ohe.transform(
     X_test[['MSZoning']]
 )
 
-# create a dataframe for the encoded columns
+# Create a DataFrame for the encoded columns
 mszoning_test_df = pd.DataFrame(
     mszoning_test,
     columns=mszoning_ohe.get_feature_names_out(['MSZoning']),
     index=X_test.index
 )
-# Drop original column
+
+# Drop the original column
 X_test = X_test.drop(columns=['MSZoning'])
 
-# Add the encoded columns
+# Concatenate the encoded columns
 X_test = pd.concat([X_test, mszoning_test_df], axis=1)
 
 # map the data after encoding
 X_test['Alley'] = X_test['Alley'].map(alley_map)
 
-# convert Alley to categorical variable
-X_test["Alley"] = X_test["Alley"].astype("category")
-
 # map the data after encoding
 X_test['Street'] = X_test['Street'].map(street_map)
 
-# convert Street to categorical variable
-X_test["Street"] = X_test["Street"].astype("category")
 
 # map the data after encoding
 X_test["LotShape"] = X_test["LotShape"].map(lotshape_map)
@@ -955,133 +1013,44 @@ X_test = X_test.drop(columns=['LandContour'])
 # Concatenate the encoded columns
 X_test = pd.concat([X_test, landcontour_test_df], axis=1)
 
-# Concatenate encoded columns
-X_test = pd.concat([X_test, landcontour_test_df], axis=1)
-
-# One-Hot Encoding
-garagetype_ohe = OneHotEncoder(
-    handle_unknown='ignore',
-    sparse_output=False
+# Transform the test data
+utilities_test = utilities_ohe.transform(
+    X_test[['Utilities']]
 )
 
-garagetype_test = garagetype_ohe.fit_transform(
-    X_test[['GarageType']]
-)
-
-# Replace missing values with 'NA' and convert to categorical variable
-X_test['GarageType'] = X_test['GarageType'].fillna('NA')
-
-# Convert the encoded columns to a DataFrame:
-garagetype_train_df = pd.DataFrame(
-    garagetype_test,
-    columns=garagetype_ohe.get_feature_names_out(['GarageType']),
-    index=X_test.index
-)
-
-# Drop the original column:
-X_test = X_test.drop(columns=['GarageType'])
-
-# Concatenate the encoded columns
-X_test = pd.concat([X_test, garagetype_train_df], axis=1)
-
-# Replace all missing values with 'NA'
-X_test['GarageFinish'] = X_test['GarageFinish'].fillna('NA')
-
-# mapping the values after encoding
-X_test['GarageFinish'] = X_test['GarageFinish'].map(garagefinish_mapping)
-
-# Convert to categorical variable
-X_test['GarageFinish'] = X_test['GarageFinish'].astype('category')
-
-# Replace all missing values with 'NA'
-X_test['GarageQual'] = X_test['GarageQual'].fillna('NA')
-
-# map the data values after encoding and conver to categorical variable
-X_test['GarageQual'] = X_test['GarageQual'].map(garagequal_mapping).astype('category')
-
-# Replace na values with 'N'
-X_test['PavedDrive'] = X_test['PavedDrive'].fillna('N')
-
-# map the data values after encoding and convert to categorical
-X_test['PavedDrive'] = X_test['PavedDrive'].map(paveddrive_mapping).astype('category')
-
-# Replace missing values with 'No Pool'
-X_test['PoolQC'] = X_test['PoolQC'].fillna('No Pool')
-
-# map the values and convert to categorical variable
-X_test['PoolQC'] = X_test['PoolQC'].map(poolqc_mapping).astype('category')
-
-# Replace missing values with 'No Fence'
-X_test['Fence'] = X_test['Fence'].fillna('No Fence')
-
-# Map the values and convert to categorical
-X_test['Fence'] = X_test['Fence'].map(fence_mapping).astype('category')
-
-# One-Hot Encoding
-miscfeature_ohe = OneHotEncoder(
-    sparse_output=False,
-    handle_unknown='ignore'
-)
-
-miscfeature_test = miscfeature_ohe.fit_transform(
-    X_test[['MiscFeature']].fillna('No Pool')
-)
-
-# create a dataframe for the encoded columns
-miscfeature_test_df = pd.DataFrame(
-    miscfeature_test,
-    columns=miscfeature_ohe.get_feature_names_out(['MiscFeature']),
-    index=X_test.index
-)
-
-# Drop original column
-X_test = X_test.drop(columns=['MiscFeature'])
-
-# Concatenate encoded columns
-X_test = pd.concat([X_test, miscfeature_test_df], axis=1)
-
-# One-Hot Encoding
-saletype_ohe = OneHotEncoder(
-    sparse_output=False,
-    handle_unknown='ignore'
-)
-
-saletype_test = saletype_ohe.fit_transform(
-    X_test[['SaleType']]
-)
-
-# create a dataframe for the encoded columns
-saletype_test_df = pd.DataFrame(
-    saletype_test,
-    columns=saletype_ohe.get_feature_names_out(['SaleType']),
+# Create a DataFrame for the encoded columns
+utilities_test_df = pd.DataFrame(
+    utilities_test,
+    columns=utilities_ohe.get_feature_names_out(['Utilities']),
     index=X_test.index
 )
 
 # Drop the original column
-X_test = X_test.drop(columns=['SaleType'])
+X_test = X_test.drop(columns=['Utilities'])
 
 # Concatenate the encoded columns
-X_test = pd.concat([X_test, saletype_test_df], axis=1)
+X_test = pd.concat([X_test, utilities_test_df], axis=1)
 
-# One-Hot Encoding
-salecondition_ohe = OneHotEncoder(
-    sparse_output=False,
-    handle_unknown='ignore'
+# Transform the test data
+lotconfig_test = lotconfig_ohe.transform(
+    X_test[['LotConfig']]
 )
 
-salecondition_test = salecondition_ohe.fit_transform(
-    X_test[['SaleCondition']]
-)
-
-# create a dataframe for the encoded columns
-salecondition_test_df = pd.DataFrame(
-    salecondition_test,
-    columns=salecondition_ohe.get_feature_names_out(['SaleCondition']),
+# Create a DataFrame for the encoded columns
+lotconfig_test_df = pd.DataFrame(
+    lotconfig_test,
+    columns=lotconfig_ohe.get_feature_names_out(['LotConfig']),
     index=X_test.index
 )
 
 # Drop the original column
-X_test = X_test.drop(columns=['SaleCondition'])
+X_test = X_test.drop(columns=['LotConfig'])
+
+# Concatenate the encoded columns
+X_test = pd.concat([X_test, lotconfig_test_df], axis=1)
+
+# map the values after encoding
+X_test['LandSlope'] = X_test['LandSlope'].map(landslope_mapping)
 
 # Transform the test data
 neighborhood_test = neighborhood_ohe.transform(
@@ -1101,40 +1070,46 @@ X_test = X_test.drop(columns=['Neighborhood'])
 # Concatenate the encoded columns
 X_test = pd.concat([X_test, neighborhood_test_df], axis=1)
 
-# Transform the test data
+# Fill missing values (if any)
+X_test["Condition1"] = X_test["Condition1"].fillna("NA")
+
+# Encode the test data using the encoder fitted on the training data
 condition1_test = condition1_ohe.transform(
-    X_test[['Condition1']]
+    X_test[["Condition1"]]
 )
 
 # Create a DataFrame for the encoded columns
 condition1_test_df = pd.DataFrame(
     condition1_test,
-    columns=condition1_ohe.get_feature_names_out(['Condition1']),
+    columns=condition1_ohe.get_feature_names_out(["Condition1"]),
     index=X_test.index
 )
 
 # Drop the original column
-X_test = X_test.drop(columns=['Condition1'])
+X_test = X_test.drop(columns=["Condition1"])
 
 # Concatenate the encoded columns
-X_test = pd.concat([X_test, salecondition_test_df], axis=1)
+X_test = pd.concat([X_test, condition1_test_df], axis=1)
 
-# Transform the test data
+# Fill missing values (if any)
+X_test["Condition2"] = X_test["Condition2"].fillna("NA")
+
+# Encode the test data using the encoder fitted on the training data
 condition2_test = condition2_ohe.transform(
-    X_test[['Condition2']]
+    X_test[["Condition2"]]
 )
 
-# create a dataframe for the encoded columns
+# Create a DataFrame for the encoded columns
 condition2_test_df = pd.DataFrame(
     condition2_test,
-    columns=condition2_ohe.get_feature_names_out(['Condition2']),
+    columns=condition2_ohe.get_feature_names_out(["Condition2"]),
     index=X_test.index
 )
 
-# drop the original column
-X_test = X_test.drop(columns=['Condition2'])
+# Drop the original column
+X_test = X_test.drop(columns=["Condition2"])
 
-# merge the encoded columns to the original data
+# Concatenate the encoded columns
 X_test = pd.concat([X_test, condition2_test_df], axis=1)
 
 # Transform the test data
@@ -1155,6 +1130,8 @@ X_test = X_test.drop(columns=['BldgType'])
 # Concatenate the encoded columns
 X_test = pd.concat([X_test, bldgtype_test_df], axis=1)
 
+
+
 # Transform the test data
 housestyle_test = housestyle_ohe.transform(
     X_test[['HouseStyle']]
@@ -1173,11 +1150,12 @@ X_test = X_test.drop(columns=['HouseStyle'])
 # Concatenate the encoded columns
 X_test = pd.concat([X_test, housestyle_test_df], axis=1)
 
-# map the values after encoding
-X_test['LandSlope'] = X_test['LandSlope'].map(landslope_mapping)
+# map the variables using the encoding function created on training phase
+X_test["OverallQual"] = X_test["OverallQual"].map(overallqual_mapping)
 
-# Map the values and convert to categorical variable
-X_test['RoofMatl'] = X_test['RoofMatl'].map(roof_mapping).astype('category')
+# map the variables using the encoding function created on training phase
+X_test['OverallCond'] = X_test['OverallCond'].map(overallcond_mapping)
+
 
 # Transform the test data
 roofstyle_test = roofstyle_ohe.transform(
@@ -1198,22 +1176,22 @@ X_test = X_test.drop(columns=['RoofStyle'])
 X_test = pd.concat([X_test, roofstyle_test_df], axis=1)
 
 # Transform the test data
-exterior2nd_test = exterior2nd_ohe.transform(
-    X_test[['Exterior2nd']]
+roofmatl_test = roofmatl_ohe.transform(
+    X_test[['RoofMatl']]
 )
 
 # Create a DataFrame for the encoded columns
-exterior2nd_test_df = pd.DataFrame(
-    exterior2nd_test,
-    columns=exterior2nd_ohe.get_feature_names_out(['Exterior2nd']),
+roofmatl_test_df = pd.DataFrame(
+    roofmatl_test,
+    columns=roofmatl_ohe.get_feature_names_out(['RoofMatl']),
     index=X_test.index
 )
 
 # Drop the original column
-X_test = X_test.drop(columns=['Exterior2nd'])
+X_test = X_test.drop(columns=['RoofMatl'])
 
 # Concatenate the encoded columns
-X_test = pd.concat([X_test, exterior2nd_test_df], axis=1)
+X_test = pd.concat([X_test, roofmatl_test_df], axis=1)
 
 # Transform the test data
 exterior1st_test = exterior1st_ohe.transform(
@@ -1233,180 +1211,155 @@ X_test = X_test.drop(columns=['Exterior1st'])
 # Concatenate the encoded columns
 X_test = pd.concat([X_test, exterior1st_test_df], axis=1)
 
-# One-Hot Encoding
-masvnr_ohe = OneHotEncoder(
-    handle_unknown="ignore",
-    sparse_output=False
-    )
+# Transform the test data
+exterior2nd_test = exterior2nd_ohe.transform(
+    X_test[['Exterior2nd']]
+)
 
-masvnr_test = masvnr_ohe.fit_transform(
-    X_test[['MasVnrType']]
-    )
-
-# create a dataframe for the encoded columns
-masvnr_test_df = pd.DataFrame(
-    masvnr_test,
-    columns=masvnr_ohe.get_feature_names_out(['MasVnrType']),
+# Create a DataFrame for the encoded columns
+exterior2nd_test_df = pd.DataFrame(
+    exterior2nd_test,
+    columns=exterior2nd_ohe.get_feature_names_out(['Exterior2nd']),
     index=X_test.index
 )
 
 # Drop the original column
-X_test = X_test.drop(columns=['MasVnrType'])
+X_test = X_test.drop(columns=['Exterior2nd'])
+
+# Concatenate the encoded columns
+X_test = pd.concat([X_test, exterior2nd_test_df], axis=1)
+
+# Replace missing values with "None"
+X_test["MasVnrType"] = X_test["MasVnrType"].fillna("None")
+
+# Transform the test data
+masvnr_test = masvnr_ohe.transform(
+    X_test[["MasVnrType"]]
+)
+
+# Create a DataFrame
+masvnr_test_df = pd.DataFrame(
+    masvnr_test,
+    columns=masvnr_ohe.get_feature_names_out(["MasVnrType"]),
+    index=X_test.index
+)
+
+# Drop the original column
+X_test = X_test.drop(columns=["MasVnrType"])
 
 # Concatenate the encoded columns
 X_test = pd.concat([X_test, masvnr_test_df], axis=1)
 
-# map the values and convert "ExterQual" to categorical variable
-X_test["ExterQual"] = X_test["ExterQual"].map(exterqual_mapping).astype("category")
 
-# map the values after encoding and convert to categorical
-X_test['ExterCond'] = X_test['ExterCond'].map(extercond_mapping).astype('category')
+# map the values 
+X_test["ExterQual"] = X_test["ExterQual"].map(exterqual_mapping)
 
-# One-Hot Encoding to encode the variable
-foundation_ohe = OneHotEncoder(
-    handle_unknown="ignore",
-    sparse_output=False
+# map the values after encoding 
+X_test['ExterCond'] = X_test['ExterCond'].map(extercond_mapping)
+
+
+# Transform the test data
+foundation_test = foundation_ohe.transform(
+    X_test[["Foundation"]]
 )
 
-foundation_test = foundation_ohe.fit_transform(
-    X_test[['Foundation']]
-
-)
-
-# Convert the encoded array to a DataFrame
+# Create a DataFrame
 foundation_test_df = pd.DataFrame(
     foundation_test,
-    columns=foundation_ohe.get_feature_names_out(['Foundation']),
+    columns=foundation_ohe.get_feature_names_out(["Foundation"]),
     index=X_test.index
 )
 
-# Drop the original Foundation column
-X_test = X_test.drop(columns=['Foundation'])
+# Drop the original column
+X_test = X_test.drop(columns=["Foundation"])
 
-# Add the encoded columns
+# Concatenate the encoded columns
 X_test = pd.concat([X_test, foundation_test_df], axis=1)
+
+
 
 # Replace missing values with 'N'
 X_test['BsmtQual'] = X_test['BsmtQual'].fillna('NA')
 
-# map the values after encoding and convert to categorical
-X_test['BsmtQual'] = X_test['BsmtQual'].map(bsmtqual_mapping).astype('category')
+# map the values after encoding 
+X_test['BsmtQual'] = X_test['BsmtQual'].map(bsmtqual_mapping)
 
-# map the values after encoding and convert to categorical
-X_test['BsmtCond'] = X_test['BsmtCond'].map(bsmtcond_mapping).astype('category')
+# map the values after encoding
+X_test['BsmtCond'] = X_test['BsmtCond'].map(bsmtcond_mapping)
 
 # Replace missing values with 'NA' (No Basement)
 X_test['BsmtExposure'] = X_test['BsmtExposure'].fillna('NA')
 
-# map the values after encoding and convert to categorical
-X_test['BsmtExposure'] = X_test['BsmtExposure'].map(bsmtexposure_mapping).astype('category')
+# map the values after encoding 
+X_test['BsmtExposure'] = X_test['BsmtExposure'].map(bsmtexposure_mapping)
 
 # Replace missing values with 'NA'
 X_test['BsmtFinType1'] = X_test['BsmtFinType1'].fillna('NA')
 
 # map the values after encoding and convert to categorical
-X_test['BsmtFinType1'] = X_test['BsmtFinType1'].map(bsmtfintype1_mapping).astype('category')
+X_test['BsmtFinType1'] = X_test['BsmtFinType1'].map(bsmtfintype1_mapping)
 
 # map the values after encoding and convert to categorical
-X_test['BsmtFinType2'] = X_test['BsmtFinType2'].map(bsmtfintype2_mapping).astype('category')
+X_test['BsmtFinType2'] = X_test['BsmtFinType2'].map(bsmtfintype2_mapping)
 
 
-# Transform the test data
-lotconfig_test = lotconfig_ohe.transform(
-    X_test[['LotConfig']]
+
+# Encode the test data using the encoder fitted on the training data
+heating_test = heating_ohe.transform(
+    X_test[["Heating"]]
 )
 
 # Create a DataFrame for the encoded columns
-lotconfig_test_df = pd.DataFrame(
-    lotconfig_test,
-    columns=lotconfig_ohe.get_feature_names_out(['LotConfig']),
-    index=X_test.index
-)
-
-# Drop the original column
-X_test = X_test.drop(columns=['LotConfig'])
-
-# Concatenate the encoded columns
-X_test = pd.concat([X_test, lotconfig_test_df], axis=1)
-
-# Transform the test data
-utilities_test = utilities_ohe.transform(
-    X_test[['Utilities']]
-)
-
-# Create a DataFrame for the encoded columns
-utilities_test_df = pd.DataFrame(
-    utilities_test,
-    columns=utilities_ohe.get_feature_names_out(['Utilities']),
-    index=X_test.index
-)
-
-# Drop the original column
-X_test = X_test.drop(columns=['Utilities'])
-
-# Concatenate the encoded columns
-X_test = pd.concat([X_test, utilities_test_df], axis=1)
-
-# maping the values
-X_test['OverallCond'] = X_test['OverallCond'].map(overallcond_mapping)
-
-# One-Hot Encode
-heating_ohe = OneHotEncoder(
-    handle_unknown="ignore",
-    sparse_output=False
-)
-
-heating_test = heating_ohe.fit_transform(
-    X_test[['Heating']]
-)
-
-# Convert the encoded array to a DataFrame:
 heating_test_df = pd.DataFrame(
     heating_test,
-    columns=heating_ohe.get_feature_names_out(['Heating']),
+    columns=heating_ohe.get_feature_names_out(["Heating"]),
     index=X_test.index
 )
 
-# Drop the original column:
-X_test = X_test.drop(columns=['Heating'])
+# Drop the original column
+X_test = X_test.drop(columns=["Heating"])
 
-# Add the encoded columns to X_train data
+# Concatenate the encoded columns
 X_test = pd.concat([X_test, heating_test_df], axis=1)
 
 # map the values after encoding and convert to categorical
-X_test['HeatingQC'] = X_test['HeatingQC'].map(heatingqc_mapping).astype('category')
+X_test['HeatingQC'] = X_test['HeatingQC'].map(heatingqc_mapping)
 
-# map the values after encoding and convert to categorical
-X_test['CentralAir'] = X_test['CentralAir'].map(centralair_mapping).astype('category')
+# map the values after encoding 
+X_test['CentralAir'] = X_test['CentralAir'].map(centralair_mapping)
 
-# One-Hot Encoding
-electrical_ohe = OneHotEncoder(
-    handle_unknown='ignore',
-    sparse_output=False
+# Fill missing values first
+X_test["Electrical"] = X_test["Electrical"].fillna("NA")
+
+# Encode the test data using the encoder fitted on the training data
+electrical_test = electrical_ohe.transform(
+    X_test[["Electrical"]]
 )
 
-electrical_test = electrical_ohe.fit_transform(
-    X_test[['Electrical']]
-)
-
-# Convert to categorical variable
-X_test['Electrical'] = X_test['Electrical'].astype('category')
-
-# Convert to a DataFrame:
+# Create a DataFrame for the encoded columns
 electrical_test_df = pd.DataFrame(
     electrical_test,
-    columns=electrical_ohe.get_feature_names_out(['Electrical']),
+    columns=electrical_ohe.get_feature_names_out(["Electrical"]),
     index=X_test.index
 )
 
-# Drop the original column:
-X_test = X_test.drop(columns=['Electrical'])
+# Drop the original column
+X_test = X_test.drop(columns=["Electrical"])
 
-# Add the encoded columns to X_train data
+# Concatenate the encoded columns
 X_test = pd.concat([X_test, electrical_test_df], axis=1)
 
-# Handling missing values
+# map the values after encoding
+X_test['KitchenQual'] = X_test['KitchenQual'].map(kitchenqual_mapping)
 
+# Mapping the values after encoding
+X_test['Functional'] = X_test['Functional'].map(functional_mapping)
+
+# rmaping the data values after encoding
+X_test['FireplaceQu'] = X_test['FireplaceQu'].map(fireplacequ_mapping)
+
+
+################### Handling missing values #########################################
 X_test["GarageYrBlt"] = X_test["GarageYrBlt"].fillna(0)
 
 # compute median value for LotFrontage
@@ -1415,49 +1368,132 @@ lotfrontage_median = X_test["LotFrontage"].median()
 # replace all na values with median score
 X_test["LotFrontage"] = X_test["LotFrontage"].fillna(lotfrontage_median)
 
-X_test["MasVnrArea"] = X_test["MasVnrArea"].fillna(0)
+# Fill missing values first
+X_test["GarageType"] = X_test["GarageType"].fillna("NA")
+
+# Encode the test data using the encoder fitted on the training data
+garagetype_test = garagetype_ohe.transform(
+    X_test[["GarageType"]]
+)
+
+# Create a DataFrame for the encoded columns
+garagetype_test_df = pd.DataFrame(
+    garagetype_test,
+    columns=garagetype_ohe.get_feature_names_out(["GarageType"]),
+    index=X_test.index
+)
+
+# Drop the original column
+X_test = X_test.drop(columns=["GarageType"])
+
+# Concatenate the encoded columns
+X_test = pd.concat([X_test, garagetype_test_df], axis=1)
+
+# Replace all missing values with 'NA'
+X_test['GarageFinish'] = X_test['GarageFinish'].fillna('NA')
+
+# mapping the values after encoding
+X_test['GarageFinish'] = X_test['GarageFinish'].map(garagefinish_mapping)
 
 
+# Replace all missing values with 'NA'
+X_test['GarageQual'] = X_test['GarageQual'].fillna('NA')
+
+# map the data values after encoding 
+X_test['GarageQual'] = X_test['GarageQual'].map(garagequal_mapping)
+
+# map the da values after encoding
+X_test['GarageCond'] = X_test['GarageCond'].map(garagecond_mapping)
+
+# Replace na values with 'N'
+X_test['PavedDrive'] = X_test['PavedDrive'].fillna('N')
+
+# map the data values after encoding 
+X_test['PavedDrive'] = X_test['PavedDrive'].map(paveddrive_mapping)
+
+# Replace missing values with 'No Pool'
+X_test['PoolQC'] = X_test['PoolQC'].fillna('No Pool')
+
+# map the values 
+X_test['PoolQC'] = X_test['PoolQC'].map(poolqc_mapping)
+
+# Replace missing values with 'No Fence'
+X_test['Fence'] = X_test['Fence'].fillna('No Fence')
+
+# Map the values after encoding 
+X_test['Fence'] = X_test['Fence'].map(fence_mapping)
+
+# Fill missing values first
+X_test["MiscFeature"] = X_test["MiscFeature"].fillna("None")
+
+# Encode the test data using the encoder fitted on the training data
+miscfeature_test = miscfeature_ohe.transform(
+    X_test[["MiscFeature"]]
+)
+
+# Create a DataFrame for the encoded columns
+miscfeature_test_df = pd.DataFrame(
+    miscfeature_test,
+    columns=miscfeature_ohe.get_feature_names_out(["MiscFeature"]),
+    index=X_test.index
+)
+
+# Drop the original column
+X_test = X_test.drop(columns=["MiscFeature"])
+
+# Concatenate the encoded columns
+X_test = pd.concat([X_test, miscfeature_test_df], axis=1)
+
+# Encode the test data using the fitted encoder
+saletype_test = saletype_ohe.transform(
+    X_test[["SaleType"]]
+)
+
+# Create a DataFrame for the encoded columns
+saletype_test_df = pd.DataFrame(
+    saletype_test,
+    columns=saletype_ohe.get_feature_names_out(["SaleType"]),
+    index=X_test.index
+)
+
+# Drop the original column
+X_test = X_test.drop(columns=["SaleType"])
+
+# Concatenate the encoded columns
+X_test = pd.concat([X_test, saletype_test_df], axis=1)
+
+# Encode the test data using the encoder fitted on the training data
+salecondition_test = salecondition_ohe.transform(
+    X_test[["SaleCondition"]]
+)
+
+# Create a DataFrame for the encoded columns
+salecondition_test_df = pd.DataFrame(
+    salecondition_test,
+    columns=salecondition_ohe.get_feature_names_out(["SaleCondition"]),
+    index=X_test.index
+)
+
+# Drop the original column
+X_test = X_test.drop(columns=["SaleCondition"])
+
+# Concatenate the encoded columns
+X_test = pd.concat([X_test, salecondition_test_df], axis=1)
 
 
+print(f"Training samples: {X_train.shape[0]}")
+print(f"Testing samples : {X_test.shape[0]}")
 
 
-
-
-
-
-print(X_test.info())
-print(X_test.columns)
-print(X_train.columns)
-print("The shape of training data is :", X_train.shape)
-print("The shape of testing data is :", X_test.shape)
 
 
 ###############################################
 ######## Regression Random Forest Model########
 ###############################################
 
-# keep a copy of the test IDs
-test_ids = X_test['Id'].copy()
-
-# Drop Id column from X_tain and X_test
-X_train = X_train.drop(columns=['Id'])
-X_test = X_test.drop(columns=['Id'])
-
-
 # print the shape of the data
 print("The shape of training data is :", X_train.shape)
 print("The shape of testing data is :", X_test.shape)
-
-# tain_test split
-X = X_train.drop(columns=["SalePrice"])
-y = X_train["SalePrice"]
-
-X_train, X_valid, y_train, y_valid = train_test_split(
-    X, y,
-    test_size=0.2,
-    random_state=42
-)
 
 # create rf model
 rf_model = RandomForestRegressor(
@@ -1472,16 +1508,78 @@ rf_model.fit(X_train, y_train)
 # Make predictions on the test set data
 y_pred = rf_model.predict(X_test)
 
-# Evaluate the model
-mae = mean_absolute_error(y_valid, y_pred)
-mse = mean_squared_error(y_valid, y_pred)
-rmse = root_mean_squared_error(y_valid, y_pred)
-r2 = r2_score(y_valid, y_pred)
+print(f"The Shape of the prected values: {y_pred.shape}")
 
-print(f"MAE : {mae:.2f}")
-print(f"MSE : {mse:.2f}")
-print(f"RMSE: {rmse:.2f}")
-print(f"R²  : {r2:.4f}")
+
+
+###############################################
+############# evaluation metrics ##############
+###############################################
+mae = mean_absolute_error(y_test, y_pred)
+mse = mean_squared_error(y_test, y_pred)
+rmse = root_mean_squared_error(y_test, y_pred)
+r2 = r2_score(y_test, y_pred)
+
+print(f"Mean Absolute Error (MAE): {mae:,.2f}")
+print(f"Mean Squared Error (MSE): {mse:,.2f}")
+print(f"Root Mean Squared Error (RMSE): {rmse:,.2f}")
+print(f"R² Score: {r2:.4f}")
+
+
+
+###############################################
+#### compare actual vs. predicted values ######
+###############################################
+comparison = pd.DataFrame({
+    "Actual Price": y_test,
+    "Predicted Price": y_pred
+})
+
+comparison["Error"] = comparison["Actual Price"] - comparison["Predicted Price"]
+comparison["Absolute Error"] = comparison["Error"].abs()
+
+print(comparison.head(10))
+
+
+
+feature_importance = pd.DataFrame({
+    "Feature": X_train.columns,
+    "Importance": rf_model.feature_importances_
+})
+
+
+###############################################
+############## Feature Importance #############
+###############################################
+feature_importance = feature_importance.sort_values(
+    by="Importance",
+    ascending=False
+)
+
+print(feature_importance.head(20))
+
+
+###############################################
+############ Plot Feature Importance ##########
+###############################################
+custom_colors = ["#2ecc71", "#3498db", "#9b59b6", "#f1c40f", "#e74c3c"]
+top_features = feature_importance.head(15)
+
+plt.figure(figsize=(10,6))
+plt.barh(top_features["Feature"], top_features["Importance"], color=custom_colors)
+plt.xlabel("Importance")
+plt.title("Top 15 Most Important Features")
+plt.gca().invert_yaxis()
+plt.show()
+
+
+
+
+
+
+
+
+
 
 
 
